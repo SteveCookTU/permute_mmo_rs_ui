@@ -7,11 +7,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-permute_mmo_rs = { git = "https://github.com/SteveCookTU/permute_mmo_rs.git", rev = "1fad044" }
+permute_mmo_rs = { git = "https://github.com/SteveCookTU/permute_mmo_rs.git", rev = "02d9c67" }
 eframe = "0.19.0"
 sysbot_rs = { git = "https://github.com/SteveCookTU/sysbot_rs", rev = "f6a8eb3", optional = true }
 num_enum = "0.5.7"
 lazy_static = "1.4.0"
+serde = {version = "1.0.147", features = ['derive']}
+serde_json = "1.0.87"
 
 [[bin]]
 name = "permute_mmo_rs_ui_bin"

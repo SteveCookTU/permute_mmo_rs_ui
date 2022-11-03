@@ -1,3 +1,4 @@
+use crate::spawner::Spawner;
 use crate::{PermuteResultWidget, NATURES_EN, SPECIES_EN};
 use eframe::egui;
 #[cfg(feature = "sysbot")]
@@ -105,7 +106,7 @@ impl PermuteMMO {
                             spawner.z,
                             SPECIES_EN[spawner.display_species as usize]
                         ),
-                        seed: format!("Seed: {:0>16X}", seed),
+                        seed: format!("Seed: 0x{:0>16X}", seed),
                         lines: vec![],
                     };
 
@@ -143,7 +144,7 @@ impl PermuteMMO {
                         spawner.z,
                         SPECIES_EN[spawner.display_species as usize]
                     ),
-                    seed: format!("Seed: {:0>16X}", seed),
+                    seed: format!("Seed: 0x{:0>16X}", seed),
                     lines: vec![],
                 };
 
@@ -177,6 +178,27 @@ impl PermuteMMO {
             } else {
                 self.status = "Failed to get MMO data from the switch";
             }
+        }
+    }
+
+    pub fn permute_single(
+        &mut self,
+        spawn: impl Into<Rc<RefCell<SpawnInfo>>>,
+        seed: u64,
+        species: u16,
+    ) {
+        let criteria = |entity: &EntityResult, _: &[Advance]| -> bool { entity.is_shiny };
+        let result = permuter::permute(spawn.into(), seed, 15, Some(criteria));
+        if result.has_results() {
+            let mut permute_result = PermuteResult {
+                name: format!("Single Spawner displays {}", SPECIES_EN[species as usize]),
+                seed: format!("Seed: 0x{:0>16X}", seed),
+                lines: vec![],
+            };
+
+            add_results(&mut permute_result, result);
+
+            self.results.push(permute_result)
         }
     }
 }
@@ -308,51 +330,90 @@ impl eframe::App for PermuteMMO {
                 #[cfg(not(target_arch = "wasm32"))]
                 if let Some(path) = file.path.as_ref() {
                     if let Ok(mut file) = File::open(path) {
-                        let mut bytes = Vec::with_capacity(
-                            MassiveOutbreakSet8a::SIZE + MassOutbreakSet8a::SIZE,
-                        );
-                        if let Ok(len) = file.read_to_end(&mut bytes) {
-                            match len {
-                                i if i >= MassiveOutbreakSet8a::SIZE + MassOutbreakSet8a::SIZE => {
-                                    self.results.clear();
-                                    let mass_data = &bytes[..MassOutbreakSet8a::SIZE];
-                                    let massive_data = &bytes[MassiveOutbreakSet8a::SIZE..];
-                                    self.permute_massive_mass_outbreak(massive_data.into());
-                                    self.permute_mass_outbreak(mass_data.into());
+                        if let Some(extension) = path.extension() {
+                            if extension == "json" || extension == "txt" {
+                                let mut spawner_str = String::new();
+                                if let Ok(_) = file.read_to_string(&mut spawner_str) {
+                                    let spawner = serde_json::from_str::<Spawner>(&spawner_str)
+                                        .unwrap_or_default();
+                                    let seed = if spawner.seed.starts_with("0x") {
+                                        u64::from_str_radix(&spawner.seed[2..], 16)
+                                            .unwrap_or_default()
+                                    } else {
+                                        u64::from_str_radix(&spawner.seed, 16).unwrap_or_default()
+                                    };
+                                    let species = spawner.species;
+                                    self.permute_single(spawner, seed, species);
                                 }
-                                i if i >= MassiveOutbreakSet8a::SIZE => {
-                                    self.results.clear();
-                                    self.permute_massive_mass_outbreak(bytes.as_slice().into());
+                            } else {
+                                let mut bytes = Vec::with_capacity(
+                                    MassiveOutbreakSet8a::SIZE + MassOutbreakSet8a::SIZE,
+                                );
+                                if let Ok(len) = file.read_to_end(&mut bytes) {
+                                    match len {
+                                        i if i
+                                            >= MassiveOutbreakSet8a::SIZE
+                                                + MassOutbreakSet8a::SIZE =>
+                                        {
+                                            self.results.clear();
+                                            let mass_data = &bytes[..MassOutbreakSet8a::SIZE];
+                                            let massive_data = &bytes[MassiveOutbreakSet8a::SIZE..];
+                                            self.permute_massive_mass_outbreak(massive_data.into());
+                                            self.permute_mass_outbreak(mass_data.into());
+                                        }
+                                        i if i >= MassiveOutbreakSet8a::SIZE => {
+                                            self.results.clear();
+                                            self.permute_massive_mass_outbreak(
+                                                bytes.as_slice().into(),
+                                            );
+                                        }
+                                        i if i >= MassOutbreakSet8a::SIZE => {
+                                            self.results.clear();
+                                            self.permute_mass_outbreak(bytes.as_slice().into());
+                                        }
+                                        _ => {}
+                                    }
                                 }
-                                i if i >= MassOutbreakSet8a::SIZE => {
-                                    self.results.clear();
-                                    self.permute_mass_outbreak(bytes.as_slice().into());
-                                }
-                                _ => {}
                             }
                         }
                     }
                 }
+
                 #[cfg(target_arch = "wasm32")]
                 if let Some(bytes) = file.bytes.as_ref() {
                     let bytes = bytes.to_vec();
-                    match bytes.len() {
-                        i if i >= MassiveOutbreakSet8a::SIZE + MassOutbreakSet8a::SIZE => {
-                            self.results.clear();
-                            let mass_data = &bytes[..MassOutbreakSet8a::SIZE];
-                            let massive_data = &bytes[MassiveOutbreakSet8a::SIZE..];
-                            self.permute_massive_mass_outbreak(massive_data.into());
-                            self.permute_mass_outbreak(mass_data.into());
+                    if file.name.ends_with(".json") || file.name.ends_with(".txt") {
+                        let spawner_str = String::from_utf8(bytes).unwrap_or_default();
+                        if !spawner_str.is_empty() {
+                            let spawner =
+                                serde_json::from_str::<Spawner>(&spawner_str).unwrap_or_default();
+                            let seed = if spawner.seed.starts_with("0x") {
+                                u64::from_str_radix(&spawner.seed[2..], 16).unwrap_or_default()
+                            } else {
+                                u64::from_str_radix(&spawner.seed, 16).unwrap_or_default()
+                            };
+                            let species = spawner.species;
+                            self.permute_single(spawner, seed, species);
                         }
-                        i if i >= MassiveOutbreakSet8a::SIZE => {
-                            self.results.clear();
-                            self.permute_massive_mass_outbreak(bytes.as_slice().into());
+                    } else {
+                        match bytes.len() {
+                            i if i >= MassiveOutbreakSet8a::SIZE + MassOutbreakSet8a::SIZE => {
+                                self.results.clear();
+                                let mass_data = &bytes[..MassOutbreakSet8a::SIZE];
+                                let massive_data = &bytes[MassiveOutbreakSet8a::SIZE..];
+                                self.permute_massive_mass_outbreak(massive_data.into());
+                                self.permute_mass_outbreak(mass_data.into());
+                            }
+                            i if i >= MassiveOutbreakSet8a::SIZE => {
+                                self.results.clear();
+                                self.permute_massive_mass_outbreak(bytes.as_slice().into());
+                            }
+                            i if i >= MassOutbreakSet8a::SIZE => {
+                                self.results.clear();
+                                self.permute_mass_outbreak(bytes.as_slice().into());
+                            }
+                            _ => {}
                         }
-                        i if i >= MassOutbreakSet8a::SIZE => {
-                            self.results.clear();
-                            self.permute_mass_outbreak(bytes.as_slice().into());
-                        }
-                        _ => {}
                     }
                 }
             }

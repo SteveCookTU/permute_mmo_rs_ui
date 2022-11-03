@@ -2,6 +2,7 @@ extern crate core;
 
 mod app;
 mod result_widget;
+mod spawner;
 
 pub use app::*;
 use lazy_static::lazy_static;

@@ -1230,7 +1230,7 @@ checksum = "478c572c3d73181ff3c2539045f6eb99e5491218eae919370993b890cdbdd98e"
 [[package]]
 name = "permute_mmo_rs"
 version = "0.1.0"
-source = "git+https://github.com/SteveCookTU/permute_mmo_rs.git?rev=1fad044#1fad0441f13baee509ea6eb8cf780e2618806fba"
+source = "git+https://github.com/SteveCookTU/permute_mmo_rs.git?rev=02d9c67#02d9c67e8b0155b53c04c0403554d0292534943a"
 dependencies = [
  "lazy_static",
  "no_std_io 0.1.0 (git+https://github.com/zaksabeast/no_std_io.git)",
@@ -1248,6 +1248,8 @@ dependencies = [
  "lazy_static",
  "num_enum",
  "permute_mmo_rs",
+ "serde",
+ "serde_json",
  "sysbot_rs",
  "tracing-subscriber",
  "tracing-wasm",
