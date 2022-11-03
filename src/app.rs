@@ -6,7 +6,7 @@ use eframe::egui::panel::Side;
 use eframe::egui::RichText;
 use eframe::egui::{DroppedFile, Visuals};
 use permute_mmo_rs::generation::EntityResult;
-use permute_mmo_rs::permutation::Advance;
+use permute_mmo_rs::permutation::{Advance, PermuteMeta};
 use permute_mmo_rs::permuter;
 use permute_mmo_rs::structure::{
     MassOutbreakSet8a, MassiveOutbreakArea8a, MassiveOutbreakSet8a, MassiveOutbreakSpawnerStatus,
@@ -14,7 +14,9 @@ use permute_mmo_rs::structure::{
 use permute_mmo_rs::util::area_util::AREA_TABLE;
 use permute_mmo_rs::util::{area_util, SpawnInfo};
 use std::cell::RefCell;
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;
+#[cfg(not(target_arch = "wasm32"))]
 use std::io::Read;
 use std::rc::Rc;
 #[cfg(feature = "sysbot")]
@@ -96,7 +98,7 @@ impl PermuteMMO {
 
                     let mut permute_result = PermuteResult {
                         name: format!(
-                            "{area_name} Spawner {} at ({:.1}, {:.1}. {}) displays {}",
+                            "{area_name} MMO Spawner {} at ({:.1}, {:.1}. {}) displays {}",
                             j + 1,
                             spawner.x,
                             spawner.y,
@@ -107,52 +109,47 @@ impl PermuteMMO {
                         lines: vec![],
                     };
 
-                    for (i, inner) in result.results.iter().enumerate() {
-                        let parent = result.find_nearest_parent_advance_result(i, &inner.advances);
-                        let is_action_multi_result =
-                            result.is_action_multi_result(i, &inner.advances);
-                        let has_child_chain = result.has_child_chain(i, &inner.advances);
-                        let mut extras = String::new();
-                        if parent.is_some() || has_child_chain {
-                            extras = format!("{} ~~ Chain result!", extras);
-                        }
-                        if is_action_multi_result {
-                            extras = format!("{} ~~ Spawns multiple results!", extras);
-                        }
-                        extras = format!("{}{}", extras, inner.get_feasibility(&inner.advances));
-                        permute_result.lines.push(ResultLine {
-                            path: inner.get_steps(parent).replace('|', " | "),
-                            wave_indicator: inner.get_wave_indicator().trim().to_string(),
-                            spawn: format!("Spawn {}", inner.entity.index),
-                            shiny: inner.entity.get_shiny_str(),
-                            name: {
-                                let alpha = if inner.entity.is_alpha { "α-" } else { "" };
-                                format!("{alpha}{}", inner.entity.slot.name)
-                            },
-                            gender: match inner.entity.gender {
-                                2 => "",
-                                1 => "(F)",
-                                _ => "(M)",
-                            },
-                            not_alpha: if !inner.entity.is_alpha {
-                                "-- NOT ALPHA"
-                            } else {
-                                ""
-                            },
-                            ivs: inner
-                                .entity
-                                .ivs
-                                .iter()
-                                .map(|iv| format!("{:0>2}", iv))
-                                .collect::<Vec<_>>()
-                                .join(" / "),
-                            extras,
-                            nature: NATURES_EN[inner.entity.nature as usize],
-                        })
-                    }
+                    add_results(&mut permute_result, result);
 
                     self.results.push(permute_result)
                 }
+            }
+        }
+    }
+
+    pub fn permute_mass_outbreak(&mut self, block: MassOutbreakSet8a) {
+        let criteria = |entity: &EntityResult, _: &[Advance]| -> bool { entity.is_shiny };
+        for i in 0..MassiveOutbreakSet8a::AREA_COUNT {
+            let spawner = block[i];
+            let area_name = if let Some(area_name) = area_util::AREA_TABLE.get(&spawner.area_hash) {
+                area_name
+            } else {
+                AREA_TABLE.get(&0).unwrap()
+            };
+            if spawner.has_outbreak() {
+                let seed = spawner.group_seed;
+                let spawn: Rc<RefCell<SpawnInfo>> = spawner.into();
+
+                let result = permuter::permute(spawn.clone(), seed, 15, Some(criteria));
+                if !result.has_results() {
+                    continue;
+                }
+
+                let mut permute_result = PermuteResult {
+                    name: format!(
+                        "{area_name} Outbreak Spawner at ({:.1}, {:.1}. {}) displays {}",
+                        spawner.x,
+                        spawner.y,
+                        spawner.z,
+                        SPECIES_EN[spawner.display_species as usize]
+                    ),
+                    seed: format!("Seed: {:0>16X}", seed),
+                    lines: vec![],
+                };
+
+                add_results(&mut permute_result, result);
+
+                self.results.push(permute_result)
             }
         }
     }
@@ -168,6 +165,64 @@ impl PermuteMMO {
                 self.status = "Failed to get MMO data from the switch";
             }
         }
+    }
+
+    #[cfg(feature = "sysbot")]
+    pub fn permute_mass_outbreak_sysbot(&mut self) {
+        if let Some(client) = self.client.as_ref() {
+            if let Ok(data) = client.pointer_peek(&[0x42BA6B0, 0x2B0, 0x58, 0x18, 0x20], 0x190) {
+                let data = &data[..(data.len() - 1)];
+                let block: MassOutbreakSet8a = data.into();
+                self.permute_mass_outbreak(block);
+            } else {
+                self.status = "Failed to get MMO data from the switch";
+            }
+        }
+    }
+}
+
+fn add_results(permute_result: &mut PermuteResult, result: PermuteMeta) {
+    for (i, inner) in result.results.iter().enumerate() {
+        let parent = result.find_nearest_parent_advance_result(i, &inner.advances);
+        let is_action_multi_result = result.is_action_multi_result(i, &inner.advances);
+        let has_child_chain = result.has_child_chain(i, &inner.advances);
+        let mut extras = String::new();
+        if parent.is_some() || has_child_chain {
+            extras = format!("{} ~~ Chain result!", extras);
+        }
+        if is_action_multi_result {
+            extras = format!("{} ~~ Spawns multiple results!", extras);
+        }
+        extras = format!("{}{}", extras, inner.get_feasibility(&inner.advances));
+        permute_result.lines.push(ResultLine {
+            path: inner.get_steps(parent).replace('|', " | "),
+            wave_indicator: inner.get_wave_indicator().trim().to_string(),
+            spawn: format!("Spawn {}", inner.entity.index),
+            shiny: inner.entity.get_shiny_str(),
+            name: {
+                let alpha = if inner.entity.is_alpha { "α-" } else { "" };
+                format!("{alpha}{}", inner.entity.slot.name)
+            },
+            gender: match inner.entity.gender {
+                2 => "",
+                1 => "(F)",
+                _ => "(M)",
+            },
+            not_alpha: if !inner.entity.is_alpha {
+                "-- NOT ALPHA"
+            } else {
+                ""
+            },
+            ivs: inner
+                .entity
+                .ivs
+                .iter()
+                .map(|iv| format!("{:0>2}", iv))
+                .collect::<Vec<_>>()
+                .join(" / "),
+            extras,
+            nature: NATURES_EN[inner.entity.nature as usize],
+        })
     }
 }
 
@@ -199,7 +254,10 @@ impl eframe::App for PermuteMMO {
                         self.results.clear();
                         self.permute_massive_mass_outbreak_sysbot();
                     }
-                    if ui.button("Outbreak").clicked() {}
+                    if ui.button("Outbreak").clicked() {
+                        self.results.clear();
+                        self.permute_mass_outbreak_sysbot();
+                    }
                 });
                 ui.add_space(2.5);
             });
@@ -247,6 +305,7 @@ impl eframe::App for PermuteMMO {
         if !ctx.input().raw.dropped_files.is_empty() {
             let files: Vec<DroppedFile> = ctx.input().raw.dropped_files.clone();
             if let Some(file) = files.first() {
+                #[cfg(not(target_arch = "wasm32"))]
                 if let Some(path) = file.path.as_ref() {
                     if let Ok(mut file) = File::open(path) {
                         let mut bytes = Vec::with_capacity(
@@ -254,15 +313,46 @@ impl eframe::App for PermuteMMO {
                         );
                         if let Ok(len) = file.read_to_end(&mut bytes) {
                             match len {
-                                i if i >= MassiveOutbreakSet8a::SIZE + MassOutbreakSet8a::SIZE => {}
+                                i if i >= MassiveOutbreakSet8a::SIZE + MassOutbreakSet8a::SIZE => {
+                                    self.results.clear();
+                                    let mass_data = &bytes[..MassOutbreakSet8a::SIZE];
+                                    let massive_data = &bytes[MassiveOutbreakSet8a::SIZE..];
+                                    self.permute_massive_mass_outbreak(massive_data.into());
+                                    self.permute_mass_outbreak(mass_data.into());
+                                }
                                 i if i >= MassiveOutbreakSet8a::SIZE => {
                                     self.results.clear();
                                     self.permute_massive_mass_outbreak(bytes.as_slice().into());
                                 }
-                                i if i >= MassOutbreakSet8a::SIZE => {}
+                                i if i >= MassOutbreakSet8a::SIZE => {
+                                    self.results.clear();
+                                    self.permute_mass_outbreak(bytes.as_slice().into());
+                                }
                                 _ => {}
                             }
                         }
+                    }
+                }
+                #[cfg(target_arch = "wasm32")]
+                if let Some(bytes) = file.bytes.as_ref() {
+                    let bytes = bytes.to_vec();
+                    match bytes.len() {
+                        i if i >= MassiveOutbreakSet8a::SIZE + MassOutbreakSet8a::SIZE => {
+                            self.results.clear();
+                            let mass_data = &bytes[..MassOutbreakSet8a::SIZE];
+                            let massive_data = &bytes[MassiveOutbreakSet8a::SIZE..];
+                            self.permute_massive_mass_outbreak(massive_data.into());
+                            self.permute_mass_outbreak(mass_data.into());
+                        }
+                        i if i >= MassiveOutbreakSet8a::SIZE => {
+                            self.results.clear();
+                            self.permute_massive_mass_outbreak(bytes.as_slice().into());
+                        }
+                        i if i >= MassOutbreakSet8a::SIZE => {
+                            self.results.clear();
+                            self.permute_mass_outbreak(bytes.as_slice().into());
+                        }
+                        _ => {}
                     }
                 }
             }

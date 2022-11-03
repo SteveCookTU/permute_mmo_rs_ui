@@ -28,6 +28,7 @@ impl Widget for PermuteResultWidget<'_> {
             ui.vertical_centered(|ui| {
                 ui.label(RichText::new(&self.result.name).size(20.0).underline());
             });
+            ui.add_space(5.0);
             ui.label(&self.result.seed);
             ui.add_space(5.0);
             egui::Grid::new(&self.result.name).show(ui, |ui| {
