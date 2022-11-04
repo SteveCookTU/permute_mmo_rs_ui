@@ -2,13 +2,25 @@ use eframe::egui;
 use eframe::egui::style::Margin;
 use eframe::egui::{Response, RichText, Rounding, Stroke, Ui, Widget};
 use eframe::epaint::Shadow;
+#[cfg(feature = "sysbot")]
+use sysbot_rs::types::PokeData;
+#[cfg(feature = "sysbot")]
+use sysbot_rs::SysBotClient;
 
 #[derive(Clone)]
 pub struct PermuteResultWidget<'a> {
     result: &'a crate::PermuteResult,
+    #[cfg(feature = "sysbot")]
+    client: &'a Option<SysBotClient>,
 }
 
 impl<'a> PermuteResultWidget<'a> {
+    #[cfg(feature = "sysbot")]
+    pub fn new(result: &'a crate::PermuteResult, client: &'a Option<SysBotClient>) -> Self {
+        Self { result, client }
+    }
+
+    #[cfg(not(feature = "sysbot"))]
     pub fn new(result: &'a crate::PermuteResult) -> Self {
         Self { result }
     }
@@ -52,7 +64,38 @@ impl Widget for PermuteResultWidget<'_> {
                     ui.end_row();
                 }
             });
+            #[cfg(feature = "sysbot")]
+            {
+                if self.result.x >= 0.0 && self.result.y >= 0.0 && self.result.z >= 0.0 {
+                    ui.add_space(5.0);
+                    ui.vertical_centered(|ui| {
+                        if ui.button("Teleport").clicked() {
+                            println!("Clicked");
+
+                            if let Some(client) = self.client.as_ref() {
+                                teleport_player(
+                                    client,
+                                    self.result.x,
+                                    self.result.y,
+                                    self.result.z,
+                                );
+                            }
+                        }
+                    });
+                }
+            }
         })
         .response
     }
+}
+
+#[cfg(feature = "sysbot")]
+fn teleport_player(client: &SysBotClient, x: f32, y: f32, z: f32) {
+    let data = [x.to_le_bytes(), (y + 30.0).to_le_bytes(), z.to_le_bytes()].concat();
+    client
+        .pointer_poke(
+            &[0x42F18E8, 0x88, 0x90, 0x1F0, 0x18, 0x80, 0x90],
+            PokeData::new(data),
+        )
+        .unwrap_or_default()
 }

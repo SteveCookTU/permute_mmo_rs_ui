@@ -37,6 +37,12 @@ pub struct PermuteMMO {
 
 pub struct PermuteResult {
     pub name: String,
+    #[cfg(feature = "sysbot")]
+    pub x: f32,
+    #[cfg(feature = "sysbot")]
+    pub y: f32,
+    #[cfg(feature = "sysbot")]
+    pub z: f32,
     pub seed: String,
     pub lines: Vec<ResultLine>,
 }
@@ -106,6 +112,12 @@ impl PermuteMMO {
                             spawner.z,
                             SPECIES_EN[spawner.display_species as usize]
                         ),
+                        #[cfg(feature = "sysbot")]
+                        x: spawner.x,
+                        #[cfg(feature = "sysbot")]
+                        y: spawner.y,
+                        #[cfg(feature = "sysbot")]
+                        z: spawner.z,
                         seed: format!("Seed: 0x{:0>16X}", seed),
                         lines: vec![],
                     };
@@ -144,6 +156,12 @@ impl PermuteMMO {
                         spawner.z,
                         SPECIES_EN[spawner.display_species as usize]
                     ),
+                    #[cfg(feature = "sysbot")]
+                    x: spawner.x,
+                    #[cfg(feature = "sysbot")]
+                    y: spawner.y,
+                    #[cfg(feature = "sysbot")]
+                    z: spawner.z,
                     seed: format!("Seed: 0x{:0>16X}", seed),
                     lines: vec![],
                 };
@@ -192,6 +210,12 @@ impl PermuteMMO {
         if result.has_results() {
             let mut permute_result = PermuteResult {
                 name: format!("Single Spawner displays {}", SPECIES_EN[species as usize]),
+                #[cfg(feature = "sysbot")]
+                x: -1.0,
+                #[cfg(feature = "sysbot")]
+                y: -1.0,
+                #[cfg(feature = "sysbot")]
+                z: -1.0,
                 seed: format!("Seed: 0x{:0>16X}", seed),
                 lines: vec![],
             };
@@ -319,7 +343,10 @@ impl eframe::App for PermuteMMO {
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 for result in self.results.iter() {
+                    #[cfg(not(feature = "sysbot"))]
                     ui.add(PermuteResultWidget::new(result));
+                    #[cfg(feature = "sysbot")]
+                    ui.add(PermuteResultWidget::new(result, &self.client));
                 }
             });
         });
