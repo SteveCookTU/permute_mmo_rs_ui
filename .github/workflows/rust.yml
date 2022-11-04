@@ -77,7 +77,7 @@ jobs:
           override: true
 
       - name: Build & Package
-        run: cargo build --release && mv target/release/permute_mmo_rs_ui_bin target/release/permute-mmo-rs-ui && 7z a -tzip ${{ runner.OS }}.zip ./target/release/permute-mmo-rs-ui
+        run: cargo build --release --features sysbot && mv target/release/permute_mmo_rs_ui_bin target/release/permute-mmo-rs-ui && 7z a -tzip ${{ runner.OS }}.zip ./target/release/permute-mmo-rs-ui
 
       - name: Upload binaries to release
         uses: softprops/action-gh-release@v1
@@ -111,7 +111,7 @@ jobs:
           override: true
 
       - name: Build & Package
-        run: cargo build --release && mv target/release/permute_mmo_rs_ui_bin.exe target/release/permute-mmo-rs-ui.exe && 7z a -tzip ${{ runner.OS }}.zip ./target/release/permute-mmo-rs-ui.exe
+        run: cargo build --release --features sysbot && mv target/release/permute_mmo_rs_ui_bin.exe target/release/permute-mmo-rs-ui.exe && 7z a -tzip ${{ runner.OS }}.zip ./target/release/permute-mmo-rs-ui.exe
 
       - name: Upload binaries to release
         uses: softprops/action-gh-release@v1
