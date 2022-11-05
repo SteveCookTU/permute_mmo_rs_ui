@@ -70,8 +70,6 @@ impl Widget for PermuteResultWidget<'_> {
                     ui.add_space(5.0);
                     ui.vertical_centered(|ui| {
                         if ui.button("Teleport").clicked() {
-                            println!("Clicked");
-
                             if let Some(client) = self.client.as_ref() {
                                 teleport_player(
                                     client,
@@ -91,7 +89,12 @@ impl Widget for PermuteResultWidget<'_> {
 
 #[cfg(feature = "sysbot")]
 fn teleport_player(client: &SysBotClient, x: f32, y: f32, z: f32) {
-    let data = [x.to_le_bytes(), (y + 30.0).to_le_bytes(), z.to_le_bytes()].concat();
+    let data = [
+        x.round().to_le_bytes(),
+        (y + 15.0).round().to_le_bytes(),
+        z.round().to_le_bytes(),
+    ]
+    .concat();
     client
         .pointer_poke(
             &[0x42F18E8, 0x88, 0x90, 0x1F0, 0x18, 0x80, 0x90],

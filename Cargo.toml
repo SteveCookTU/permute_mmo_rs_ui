@@ -9,7 +9,7 @@ edition = "2021"
 [dependencies]
 permute_mmo_rs = { git = "https://github.com/SteveCookTU/permute_mmo_rs.git", rev = "02d9c67" }
 eframe = "0.19.0"
-sysbot_rs = { git = "https://github.com/SteveCookTU/sysbot_rs", rev = "f6a8eb3", optional = true }
+sysbot_rs = { git = "https://github.com/SteveCookTU/sysbot_rs", rev = "dc9fe68", optional = true }
 num_enum = "0.5.7"
 lazy_static = "1.4.0"
 serde = {version = "1.0.147", features = ['derive']}

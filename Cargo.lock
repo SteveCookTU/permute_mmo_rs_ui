@@ -1598,7 +1598,7 @@ dependencies = [
 [[package]]
 name = "sysbot_rs"
 version = "0.1.0"
-source = "git+https://github.com/SteveCookTU/sysbot_rs?rev=f6a8eb3#f6a8eb3c36008f227072c3f8ef8c797959573a3f"
+source = "git+https://github.com/SteveCookTU/sysbot_rs?rev=dc9fe68#dc9fe68baa91af7863a6c3eed11a955f8eb31c5c"
 
 [[package]]
 name = "thiserror"
