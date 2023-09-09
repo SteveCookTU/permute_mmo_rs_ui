@@ -6,13 +6,13 @@ use permute_mmo_rs_ui::PermuteMMO;
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
     // Log to stdout (if you run with `RUST_LOG=debug`).
-    tracing_subscriber::fmt::init();
+    env_logger::init();
 
     let native_options = eframe::NativeOptions {
         drag_and_drop_support: true,
         ..Default::default()
     };
-    eframe::run_native(
+    let _ = eframe::run_native(
         "PermuteMMO - Rust Edition",
         native_options,
         Box::new(|cc| Box::new(PermuteMMO::new(cc))),
@@ -22,17 +22,19 @@ fn main() {
 // when compiling to web using trunk.
 #[cfg(target_arch = "wasm32")]
 fn main() {
-    // Make sure panics are logged using `console.error`.
-    console_error_panic_hook::set_once();
-
-    // Redirect tracing to console.log and friends:
-    tracing_wasm::set_as_global_default();
+    eframe::WebLogger::init(log::LevelFilter::Debug).ok();
 
     let web_options = eframe::WebOptions::default();
-    eframe::start_web(
-        "permute_mmo_rs", // hardcode it
-        web_options,
-        Box::new(|cc| Box::new(PermuteMMO::new(cc))),
-    )
-    .expect("failed to start eframe");
+
+    wasm_bindgen_futures::spawn_local(async {
+        eframe::WebRunner::new()
+            .start(
+                "permute_mmo_rs", // hardcode it
+                web_options,
+                Box::new(|cc| Box::new(PermuteMMO::new(cc))),
+            )
+            .await
+            .expect("failed to start eframe");
+    });
+
 }

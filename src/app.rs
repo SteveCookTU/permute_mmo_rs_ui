@@ -351,8 +351,8 @@ impl eframe::App for PermuteMMO {
             });
         });
 
-        if !ctx.input().raw.dropped_files.is_empty() {
-            let files: Vec<DroppedFile> = ctx.input().raw.dropped_files.clone();
+        if !ctx.input(|i| i.raw.dropped_files.is_empty()) {
+            let files: Vec<DroppedFile> = ctx.input(|i| i.raw.dropped_files.clone());
             if let Some(file) = files.first() {
                 #[cfg(not(target_arch = "wasm32"))]
                 if let Some(path) = file.path.as_ref() {
